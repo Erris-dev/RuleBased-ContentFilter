@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+
+# SQLite database files — schema is in schema.sql, data is seeded
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+.env
+.env.local
+*.local
+
+.DS_Store
+Thumbs.db
+
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+*.log
+npm-debug.log*
