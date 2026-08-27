@@ -30,6 +30,10 @@ export const createRulesRepository = (db: Database) => {
 
     count: db.prepare<[], { n: number }>('SELECT COUNT(*) AS n FROM rules'),
 
+    findById: db.prepare<[number], RuleRow>(
+      `SELECT ${SELECT_COLUMNS} FROM rules WHERE id = ?`,
+    ),
+
     insert: db.prepare<
       {
         keyword: string;
@@ -50,6 +54,49 @@ export const createRulesRepository = (db: Database) => {
       RETURNING ${SELECT_COLUMNS}
     `),
 
+    update: db.prepare<{
+      id: number;
+      keyword: string;
+      match_type: string;
+      action_type: string;
+      color: string | null;
+      label: string | null;
+      priority: number;
+      is_enabled: 0 | 1;
+      case_sensitive: 0 | 1;
+    }>(`
+      UPDATE rules SET
+        keyword        = @keyword,
+        match_type     = @match_type,
+        action_type    = @action_type,
+        color          = @color,
+        label          = @label,
+        priority       = @priority,
+        is_enabled     = @is_enabled,
+        case_sensitive = @case_sensitive
+      WHERE id = @id
+    `),
+
+    setEnabled: db.prepare<[0 | 1, number]>('UPDATE rules SET is_enabled = ? WHERE id = ?'),
+
+    remove: db.prepare<[number]>('DELETE FROM rules WHERE id = ?'),
+  };
+
+  const findById = (id: number): Rule | null => {
+    const row = statements.findById.get(id);
+    return row ? rowToRule(row) : null;
+  };
+
+  /**
+   * Updates re-read the row instead of using `RETURNING`: SQLite evaluates
+   * RETURNING before AFTER triggers fire, so the returned `updated_at` would
+   * still be the old one. One extra indexed read by primary key is cheaper than
+   * a stale timestamp reaching the client.
+   */
+  const reread = (id: number): Rule => {
+    const rule = findById(id);
+    if (!rule) throw new Error(`Rule ${id} vanished mid-write`);
+    return rule;
   };
 
   const create = (input: RuleInput): Rule => {
@@ -70,8 +117,32 @@ export const createRulesRepository = (db: Database) => {
     return rowToRule(row);
   };
 
+  /** Only the field its action type uses is persisted, on update as on insert. */
+  const update = (id: number, input: RuleInput): Rule | null => {
+    const result = statements.update.run({
+      id,
+      keyword: input.keyword.trim(),
+      match_type: input.matchType,
+      action_type: input.actionType,
+      color: input.actionType === 'highlight' ? (input.color ?? null) : null,
+      label: input.actionType === 'tooltip' ? (input.label ?? null) : null,
+      priority: input.priority ?? 0,
+      is_enabled: toDbBool(input.isEnabled, true),
+      case_sensitive: toDbBool(input.caseSensitive, false),
+    });
+
+    return result.changes === 0 ? null : reread(id);
+  };
+
+  const setEnabled = (id: number, isEnabled: boolean): Rule | null => {
+    const result = statements.setEnabled.run(isEnabled ? 1 : 0, id);
+    return result.changes === 0 ? null : reread(id);
+  };
+
   return {
     list: (): Rule[] => statements.list.all().map(rowToRule),
+
+    findById,
 
     /** Used by text processing — disabled rules must not participate. */
     listEnabled: (): Rule[] => statements.listEnabled.all().map(rowToRule),
@@ -82,6 +153,15 @@ export const createRulesRepository = (db: Database) => {
 
     /** Inserts many rules in one transaction — all land, or none do. */
     createMany: db.transaction((inputs: readonly RuleInput[]): Rule[] => inputs.map(create)),
+
+    /** Full replacement (PUT). Returns null when the id does not exist. */
+    update,
+
+    /** The enable/disable toggle (PATCH). Returns null when the id does not exist. */
+    setEnabled,
+
+    /** Returns false when the id did not exist, so the caller can 404. */
+    remove: (id: number): boolean => statements.remove.run(id).changes > 0,
   };
 };
 

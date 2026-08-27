@@ -2,7 +2,7 @@
  * Barrel for the data layer. Controllers and services import from here rather
  * than reaching into individual files.
  */
-export { EXAMPLE_RULES, EXAMPLE_TEXT } from './rule.examples.js';
+export { EXAMPLE_RULES } from './rule.examples.js';
 export {
   ACTION_TYPES,
   MATCH_TYPES,

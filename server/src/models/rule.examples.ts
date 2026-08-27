@@ -1,10 +1,10 @@
 import type { RuleInput } from './rule.model.js';
 
 /**
- * The example scenario from the assignment brief.
+ * The example rules from the assignment brief.
  *
- * Not yet wired up: this feeds the "Load example rules" button (plan §8.9), which
- * lands with the rule UI in phase 7. It lives on the server so the button and the
+ * Seeded by `POST /api/rules/examples`, which backs the "Load example rules"
+ * button (plan §8.9). The definition lives on the server so the button and the
  * API agree on one definition rather than the client carrying its own copy.
  *
  * Deliberately exactly the brief's three rules and nothing more -- adding a
@@ -34,7 +34,3 @@ export const EXAMPLE_RULES: readonly RuleInput[] = [
     priority: 0,
   },
 ] as const;
-
-/** The brief's sample input, used as the textarea's starting content. */
-export const EXAMPLE_TEXT =
-  'The meeting with the finance team is tomorrow. The deadline is urgent.';
