@@ -1,5 +1,11 @@
 /** Mirrors the server's domain types (plan §7). */
 
+/**
+ * Id the server gives an unsaved rule being previewed in the form (plan §8.5).
+ * Negative so it can never collide with a real, auto-incremented rule id.
+ */
+export const DRAFT_RULE_ID = -1;
+
 export const MATCH_TYPES = ['contains', 'startsWith', 'exact'] as const;
 export type MatchType = (typeof MATCH_TYPES)[number];
 

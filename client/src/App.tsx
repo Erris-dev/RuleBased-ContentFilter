@@ -15,9 +15,8 @@ import { useProcessedText } from '@/hooks/useProcessedText';
 import { useRules } from '@/hooks/useRules';
 import { useTheme } from '@/hooks/useTheme';
 import { cn } from '@/lib/cn';
-import { DRAFT_RULE_ID } from '@/lib/matcher';
 import { ruleInputSchema } from '@/lib/validation';
-import type { Rule, RuleInput } from '@/types';
+import { DRAFT_RULE_ID, type Rule, type RuleInput } from '@/types';
 
 const SHORTCUTS = [
   { keys: '⌘/Ctrl + K', action: 'New rule' },

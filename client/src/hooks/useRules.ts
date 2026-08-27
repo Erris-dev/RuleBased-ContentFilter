@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { api, EXAMPLE_RULES } from '@/api';
+import { api } from '@/api';
 import type { Rule, RuleInput } from '@/types';
 
 /** How long a delete can be undone before it is sent (plan §8.9). */
@@ -100,7 +100,7 @@ export const useRules = () => {
 
   const loadExamples = useCallback(async () => {
     try {
-      const created = await api.createMany(EXAMPLE_RULES);
+      const created = await api.createExamples();
       setRules((current) => sortRules([...current, ...created]));
       toast.success('Loaded the example rules');
     } catch {
