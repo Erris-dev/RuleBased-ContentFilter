@@ -112,24 +112,24 @@ RuleBased-ContentFilter/
 ├── package.json                 # npm workspaces: run both sides with one command
 ├── server/
 │   ├── scripts/copy-schema.mjs      # copies schema.sql into dist/
-│   ├── tests/                       # matcher suite (phase 4)
+│   ├── tests/                       # matcher suite + API suite
 │   └── src/
 │       ├── index.ts                    # entrypoint: listen + graceful shutdown
 │       ├── app.ts                      # composition root + middleware order
 │       ├── config.ts                   # env-derived settings
 │       │
 │       ├── routes/                     # path -> controller wiring only
-│       │   ├── rules.routes.ts             — phase 3
-│       │   ├── process.routes.ts           — phase 5
+│       │   ├── rules.routes.ts
+│       │   ├── process.routes.ts
 │       │   └── index.ts                    # mounts everything under /api
 │       │
 │       ├── controllers/                # request/response, status codes
-│       │   ├── rules.controller.ts         — phase 3
-│       │   └── process.controller.ts       — phase 5
+│       │   ├── rules.controller.ts
+│       │   └── process.controller.ts
 │       │
 │       ├── services/                   # domain rules, orchestration
-│       │   ├── rules.service.ts            — phase 3
-│       │   └── process.service.ts          — phase 5
+│       │   ├── rules.service.ts
+│       │   └── process.service.ts
 │       │
 │       ├── models/                     # the data layer
 │       │   ├── rule.model.ts           # entity: types, enums, row mapping
@@ -138,13 +138,13 @@ RuleBased-ContentFilter/
 │       │   └── index.ts
 │       │
 │       ├── validations/                # Zod contracts, shared with the client
-│       │   ├── rule.validation.ts          — phase 3
-│       │   └── process.validation.ts       — phase 5
+│       │   ├── rule.validation.ts
+│       │   └── process.validation.ts
 │       │
 │       ├── matcher/                    # pure functions: no Express, no SQL
-│       │   ├── findMatches.ts          # per-rule match location    — phase 4
-│       │   ├── resolveSegments.ts      # overlap -> flat segments   — phase 4
-│       │   ├── processText.ts          # orchestration              — phase 4
+│       │   ├── findMatches.ts          # per-rule match location
+│       │   ├── resolveSegments.ts      # overlap -> flat segments
+│       │   ├── processText.ts          # orchestration
 │       │   └── index.ts
 │       │
 │       ├── database/                   # persistence infrastructure
@@ -409,6 +409,7 @@ JSON in, JSON out.
 | --- | --- | --- | --- |
 | `GET` | `/rules` | — | `Rule[]`, ordered by priority desc, id asc |
 | `POST` | `/rules` | `RuleInput` | `201` + created `Rule` |
+| `POST` | `/rules/examples` | — | `201` + the brief's three `Rule`s (§8.9) |
 | `PUT` | `/rules/:id` | `RuleInput` | `200` + updated `Rule` (O1) |
 | `PATCH` | `/rules/:id` | `{ isEnabled }` | `200` + updated `Rule` (O2) |
 | `DELETE` | `/rules/:id` | — | `204` (O1) |
@@ -672,16 +673,20 @@ runs short.
 Phases 6–12 were built ahead of 3–5, on request. To avoid blocking on endpoints that did not exist:
 
 - The matcher (phase 4) was written **for real**, as pure functions in `client/src/lib/matcher.ts`.
-  It imports nothing but types, so it moves to `server/src/matcher/` unchanged.
-- Everything else the UI needed from the API is served by `client/src/lib/mockApi.ts`, which
-  implements the §7 contract exactly and persists to `localStorage`.
-- `client/src/api.ts` is the only file that knows which of the two is in use.
+  It imported nothing but types, so it moved to `server/src/matcher/` unchanged.
+- Everything else the UI needed from the API was served by `client/src/lib/mockApi.ts`, which
+  implemented the §7 contract exactly and persisted to `localStorage`.
+- `client/src/api.ts` was the only file that knew which of the two was in use.
 
-**Remaining work is therefore:** write phases 3 and 5 against the existing contract, move
-`matcher.ts` to the server, add the phase-4 test suite against it, and repoint `api.ts` at `fetch`.
-Nothing above `api.ts` should need to change — that is the property the seam exists to provide.
+Phases 3–5 then landed against that contract: the matcher moved to the server (split into
+`findMatches` / `resolveSegments` / `processText`, otherwise unchanged), the endpoints were written
+around it, the §6.6 suite was written against the real thing, and `api.ts` was repointed at
+`fetch`. The mock was deleted.
 
----
+**The seam held.** Nothing above `api.ts` changed except two call sites that had nothing to do with
+transport: `DRAFT_RULE_ID` moved from the deleted matcher module into `types.ts`, and
+"Load example rules" now calls `POST /api/rules/examples` instead of posting a client-side copy of
+the example rules — the definition lives on the server, so the button and the API cannot drift.
 
 ## 11. Risks
 
@@ -701,20 +706,23 @@ Nothing above `api.ts` should need to change — that is the property the seam e
 
 ## 12. Definition of done
 
-- [ ] Every row in the §2 required table is implemented and manually verified
-- [ ] The PDF's example scenario reproduces exactly, end to end
-- [ ] Matcher tests pass, including the round-trip invariant
-- [ ] A fresh `git clone` runs by following only the README
-- [ ] Rules persist across a server restart
-- [ ] No console errors or unhandled promise rejections in a normal session
+- [x] Every row in the §2 required table is implemented and manually verified
+- [x] The PDF's example scenario reproduces exactly, end to end — asserted in both suites and
+      checked in the browser against the live API
+- [x] Matcher tests pass, including the round-trip invariant — 39 tests green
+- [x] A fresh `git clone` runs by following only the README
+- [x] Rules persist across a server restart — verified by restarting against the same file
+- [x] No console errors or unhandled promise rejections in a normal session
 
 UI/UX bar:
 
-- [ ] Typing a rule keyword updates the preview without saving, and without flicker
-- [ ] Hovering a rule highlights its matches, and vice versa
-- [ ] Light and dark both look deliberate; no unstyled flash on load
-- [ ] Every flow is completable with the keyboard alone, with visible focus throughout
-- [ ] Highlights remain distinguishable in a greyscale screenshot
-- [ ] Every state has a designed treatment — empty, loading, error, no-matches
-- [ ] Layout holds at 375 px with no horizontal scroll
-- [ ] `prefers-reduced-motion` disables animation without breaking any feature
+- [x] Typing a rule keyword updates the preview without saving, and without flicker
+- [x] Hovering a rule highlights its matches, and vice versa
+- [x] Light and dark both look deliberate; no unstyled flash on load
+- [x] Every flow is completable with the keyboard alone, with visible focus throughout
+- [x] Highlights remain distinguishable in a greyscale screenshot
+- [x] Every state has a designed treatment — empty, loading, error, no-matches
+- [x] Layout holds at 375 px with no horizontal scroll
+- [x] `prefers-reduced-motion` disables animation without breaking any feature
+
+Screenshots for the README (§9) are the one item still outstanding.
